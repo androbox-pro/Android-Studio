@@ -5,9 +5,6 @@ on:
   push:
     branches: [ "main" ]
 
-permissions:
-  contents: write
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -15,49 +12,20 @@ jobs:
       - name: Checkout Repo
         uses: actions/checkout@v4
 
-      - name: Validate Gradle wrapper
-        uses: gradle/wrapper-validation-action@v3
-
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-
-      # Android SDK-এর পাথ নির্ধারণ ও sdkmanager-এ পাথ যোগ করা
-      - name: Set up Android SDK paths
-        run: |
-          ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
-          # সম্ভাব্য পাথগুলো PATH-এ যোগ করা
-          echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> $GITHUB_PATH
-          echo "$ANDROID_SDK_ROOT/tools/bin" >> $GITHUB_PATH
-          echo "$ANDROID_SDK_ROOT/platform-tools" >> $GITHUB_PATH
-
-      - name: Accept Android SDK licenses
-        run: yes | sdkmanager --licenses
-
       - name: Make Gradle executable
         run: chmod +x ./gradlew
 
-      - name: Build APK and capture errors
-        run: |
-          rm -f error.txt
-          ./gradlew assembleDebug --stacktrace 2> error.txt || {
-            echo "Build failed. Committing error log..."
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add error.txt
-            git commit -m "Add error log from failed build [skip ci]"
-            git push
-            exit 1
-          }
+      - name: Build APK
+        run: ./gradlew assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: debug-apk
-          path: '**/build/outputs/apk/**/*.apk'￼Enter
+          path: app/build/outputs/apk/debug/*.apk
