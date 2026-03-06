@@ -1,0 +1,57 @@
+name: Android Build
+
+on:
+  workflow_dispatch:        # ম্যানুয়াল ট্রিগার
+  push:
+    branches: [ "main" ]    # main ব্রাঞ্চে পুশ হলে চলবে
+
+permissions:
+  contents: write           # error.txt commit করার অনুমতি
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Validate Gradle wrapper
+        uses: gradle/wrapper-validation-action@v3
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4   # ক্যাশিং ও অন্যান্য সুবিধা অটো
+
+      - name: Accept Android SDK licenses
+        run: yes | sdkmanager --licenses
+
+      - name: Make Gradle executable
+        run: chmod +x ./gradlew
+
+      - name: Build APK and capture errors
+        run: |
+          # পুরোনো error.txt থাকলে মুছে ফেলুন (ঐচ্ছিক)
+          rm -f error.txt
+
+          # বিল্ড চালান, ত্রুটির আউটপুট error.txt-এ সংরক্ষণ করুন
+          ./gradlew assembleDebug --stacktrace 2> error.txt || {
+            # বিল্ড ব্যর্থ হলে error.txt commit করুন
+            echo "Build failed. Committing error log..."
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add error.txt
+            git commit -m "Add error log from failed build [skip ci]"
+            git push
+            exit 1   # ওয়ার্কফ্লো ব্যর্থ বলে চিহ্নিত করুন
+          }
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-apk
+          path: '**/build/outputs/apk/**/*.apk'
